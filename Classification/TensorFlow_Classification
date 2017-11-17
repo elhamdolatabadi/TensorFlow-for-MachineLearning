@@ -73,7 +73,7 @@ class ml_tensor():
                 tr_avg_acc += tr_acc/total_batch
                 # Display logs per epoch step
             avg_cost_val.append(avg_cost)
-            train_accuracy.append(tr_acc)
+            train_accuracy.append(tr_avg_acc)
             val_accuracy.append(sess.run(accuracy, feed_dict={x: self.data.validation.images,y_: self.data.validation.labels}))
             
             if epoch % 10 == 0:
