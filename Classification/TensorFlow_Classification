@@ -1,0 +1,152 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct 26 13:20:38 2017
+
+@author: elhamdolatabadi
+"""
+import tensorflow as tf
+import time
+from sklearn.cross_validation import train_test_split
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+tf.__version__
+from tensorflow.examples.tutorials.mnist import input_data
+sess = tf.InteractiveSession()
+
+class ml_tensor():
+    def __init__(self,data,x,y_,numFeatures,numLabels):
+        self.numFeatures = numFeatures
+        self.numLabels = numLabels
+        self.data = data
+        self.x = x
+        self.y_=y_
+    
+    def get_cost(self,cost_name):
+        y = self.y
+        y_ = self.y_
+        if cost_name == 'cross_entropy':
+            cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
+        elif cost_name == 'squared_error_cost':
+            cost = tf.nn.l2_loss(y-y_, name="squared_error_cost")
+        return cost
+        
+    def eval_classifier(self):
+        y = self.y
+        y_ = self.y_
+        correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        return accuracy
+        
+    def run_classifier(self,batch_size=None,numEpochs=None,plotting = None):
+        x = self.x
+        y = self.y
+        y_ = self.y_
+        if numEpochs==None:
+            numEpochs= 100
+        if batch_size == None:
+            batch_size = 1
+        if plotting == None:
+            plotting == False
+            
+        cost = self.cost
+        training = self.clf
+        
+        accuracy = self.eval_classifier()
+        
+        tf.global_variables_initializer().run()
+        # Training cycle
+        avg_cost_val=[]
+        train_accuracy=[]
+        val_accuracy = []
+        for epoch in range(numEpochs):
+            avg_cost = 0.
+            tr_avg_acc=0.
+            total_batch = int(self.data.train.num_examples/batch_size)
+            # Loop over all batches
+            for _ in range(total_batch):
+                batch_xs, batch_ys = self.data.train.next_batch(batch_size)
+                _, c,tr_acc = sess.run([training,cost,accuracy], feed_dict={x: batch_xs, y_: batch_ys})
+                # Compute average loss
+                avg_cost += c / total_batch
+                tr_avg_acc += tr_acc/total_batch
+                # Display logs per epoch step
+            avg_cost_val.append(avg_cost)
+            train_accuracy.append(tr_acc)
+            val_accuracy.append(sess.run(accuracy, feed_dict={x: self.data.validation.images,y_: self.data.validation.labels}))
+            
+            if epoch % 10 == 0:
+                print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost))
+        if plotting:
+            plt.figure()
+            plt.plot(avg_cost_val,'r-',label = 'cost')
+            plt.figure()
+            plt.plot(train_accuracy,'k*-')            
+            plt.plot(val_accuracy,'bo-')
+            plt.legend(('training accuracy', 'validation accuracy'), shadow=True, fancybox=True)
+            plt.show()
+            
+    
+    def design_classifier(self,model_name,cost_name):
+        numFeatures = self.numFeatures
+        numLabels = self.numLabels
+        x=self.x
+        y_ = self.y_
+        
+        if model_name == 'SR': # softmax regression
+             # Create the model
+          W = tf.Variable(tf.zeros([numFeatures, numLabels]))
+          b = tf.Variable(tf.zeros([numLabels]))
+          y = tf.matmul(x, W) + b
+          self.y = y
+
+          cost = self.get_cost(cost_name)
+          clf = tf.train.GradientDescentOptimizer(0.5).minimize(cost)
+          self.clf = clf
+          self.cost = cost
+          
+        elif model_name == 'LR': #Logistic regression
+             # Create the model
+          W = tf.Variable(tf.zeros([numFeatures, numLabels]))
+          b = tf.Variable(tf.zeros([numLabels]))
+          y = tf.nn.sigmoid(tf.matmul(x, W) + b)
+          self.y = y
+          
+          # Defining our learning rate iterations (decay)
+          learningRate = tf.train.exponential_decay(learning_rate=0.0008,
+                                          global_step= 1,
+                                          decay_steps=trainX.shape[0],
+                                          decay_rate= 0.95,
+                                          staircase=True)
+
+          #Defining our cost function - Squared Mean Error
+          cost = self.get_cost(cost_name)
+          clf = tf.train.GradientDescentOptimizer(learningRate).minimize(cost)
+          self.clf = clf
+          self.cost = cost
+          
+        
+
+#---------- main loop
+if __name__ == "__main__": 
+    mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+    trainX = mnist.train.images
+    trainY = mnist.train.labels
+    testX = mnist.test.images
+    testY = mnist.test.labels
+    
+    numFeatures = trainX.shape[1]
+    numLabels = trainY.shape[1]
+    
+    x = tf.placeholder(tf.float32, [None, numFeatures])
+    y = tf.placeholder(tf.float32, [None, numLabels])       
+    my_tensor = ml_tensor(mnist,x,y,numFeatures,numLabels)
+    my_tensor.design_classifier('LR','squared_error_cost')
+    my_tensor.run_classifier(batch_size = 100,numEpochs=1000,plotting = True)
+
+    accuracy = my_tensor.eval_classifier()
+    print('accuracy on test set is %f '%sess.run(accuracy, feed_dict={x: mnist.test.images,y: mnist.test.labels}))
+    sess.close()
+    
+
